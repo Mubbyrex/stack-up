@@ -25,15 +25,19 @@ ChartJS.register(
   Legend,
   ArcElement
 );
-
 export default function App() {
   const [myFiles, setMyFiles] = useState([])
   const [selectedFile, setSelectedFile] = useState(null)
   const [filePath, setFilePath] = useState("/file-server/")
   const [showChartModal, setShowChartModal] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   useEffect(() => {
     setMyFiles(data)
+    // Updating the current time every second
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, [])
   var barChartOptions = {
     responsive: true,
@@ -47,6 +51,50 @@ export default function App() {
       },
     },
   };
+
+  // filtering the files based on input
+  const filteredFiles = myFiles.filter((file) =>
+    file.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleFileSelection = (file) => {
+    if (selectedFile && selectedFile.id === file.id) {
+      setSelectedFile(null);
+    } else {
+      const updatedFiles = myFiles.map((f) => {
+        if (f.id === file.id) {
+          return {
+            ...f,
+            lastOpened: new Date().toLocaleString()
+          };
+        }
+        return f;
+      });
+      setMyFiles(updatedFiles);
+      setSelectedFile(file);
+    }
+  };
+
+  const getTimeElapsed = (lastOpened) => {
+    const lastOpenedTime = new Date(lastOpened);
+    const currentTime = new Date();
+    const elapsedMilliseconds = currentTime - lastOpenedTime;
+    const elapsedSeconds = Math.floor(elapsedMilliseconds / 1000);
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    const elapsedDays = Math.floor(elapsedHours / 24);
+  
+    if (elapsedDays > 0) {
+      return `${elapsedDays} day${elapsedDays === 1 ? '' : 's'} ago`;
+    } else if (elapsedHours > 0) {
+      return `${elapsedHours} hour${elapsedHours === 1 ? '' : 's'} ago`;
+    } else if (elapsedMinutes > 0) {
+      return `${elapsedMinutes} minute${elapsedMinutes === 1 ? '' : 's'} ago`;
+    } else {
+      return 'Just now';
+    }
+  };
+ 
 
   return (
     <>
@@ -118,6 +166,27 @@ export default function App() {
             <p style={{ fontWeight: "bold" }}>My Files</p>
             <p>{selectedFile ? selectedFile.path : filePath}</p>
           </div>
+          {/* search input field */}
+          <div style={styles.searchContainer}>
+            <div style={styles.searchInputContainer}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search files..."
+                style={styles.searchInput}
+              />
+              {searchQuery && (
+                <button
+                  style={styles.clearButton}
+                  onClick={() => setSearchQuery("")}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          {/* control buttons */}
           <div style={styles.controlTools}>
             <button style={styles.controlButton}
               onClick={() => {
@@ -148,25 +217,66 @@ export default function App() {
                 }
               }}
             >Download</button>
+            <button style={styles.controlButton}
+              onClick={() => {
+                if (selectedFile) {
+                  const newFiles = myFiles.filter(file => file.id !== selectedFile.id);
+                  setMyFiles(newFiles);
+                  setSelectedFile(null);
+                }
+              }}
+            >Delete</button>
           </div>
           <div style={styles.fileContainer}>
             <div style={{ width: "100%", padding: 10 }}>
-              {myFiles.map((file) => {
-
-                if (file.path.slice(0, filePath.length) === filePath) {
-                  return (
-                    <div style={styles.file} className="files" key={file.id} onClick={() => {
-                      if (selectedFile && selectedFile.id === file.id) {
-                        setSelectedFile(null)
-                        return
-                      }
-                      setSelectedFile(file)
-                    }}>
-                      <p>{file.name}</p>
+              {/* displaying files */}
+              {searchQuery !== "" ? (
+                filteredFiles.length > 0 ? (
+                  filteredFiles.map((file) => (
+                    <div
+                      style={styles.file}
+                      className="files"
+                      key={file.id}
+                      onClick={() => handleFileSelection(file)}
+                    >
+                      <p
+                        style={{
+                          fontWeight: selectedFile && selectedFile.id === file.id ? "bold" : "normal",
+                        }}
+                      >
+                        {file.name}
+                      </p>
                     </div>
-                  )
-                }
-              })}
+                  ))
+                ) : (
+                  <p>No matching files found.</p>
+                )
+              ) : (
+                // Display all files if no search query
+                myFiles
+                  .filter((file) => file.path.slice(0, filePath.length) === filePath)
+                  .map((file) => (
+                    <div
+                      style={styles.file}
+                      className="files"
+                      key={file.id}
+                      onClick={() => handleFileSelection(file)}
+                    >
+                      <p
+                        style={{
+                          fontWeight: selectedFile && selectedFile.id === file.id ? "bold" : "normal",
+                        }}
+                      >
+                        {file.name}
+                      </p>
+                      <p style={{ fontStyle: "italic", fontSize: "12px" }}>
+                        {file.lastOpened === undefined ? '' : `Last Opened: ${getTimeElapsed(file.lastOpened, currentTime)}`}
+                      </p>
+
+                    </div>
+                  ))
+              )}
+
             </div>
             {selectedFile && (
               <div style={styles.fileViewer}>
@@ -235,8 +345,8 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 'bold',
   },
-   // modal
-   modal: {
+  // modal
+  modal: {
     position: 'fixed',
     top: 0,
     left: 0,
@@ -263,7 +373,7 @@ const styles = {
     padding: '10px',
     cursor: 'pointer',
   },
-  modalBody:{
+  modalBody: {
     width: '100%',
     height: '90%',
     display: 'flex',
@@ -285,5 +395,31 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 'bold',
     backgroundColor: '#eee',
-  }
+  },
+  searchContainer: {
+    position: 'relative',
+    padding: '10px',
+    marginBottom: '10px',
+  },
+  searchInputContainer: {
+    position: 'relative',
+  },
+  searchInput: {
+    padding: '8px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    width: '100%',
+    fontSize: '14px',
+  },
+  clearButton: {
+    position: 'absolute',
+    top: '50%',
+    right: '10px',
+    transform: 'translateY(-50%)',
+    padding: '5px',
+    border: 'none',
+    borderRadius: '4px',
+    backgroundColor: '#eee',
+    cursor: 'pointer',
+  },
 };

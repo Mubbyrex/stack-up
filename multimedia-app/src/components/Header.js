@@ -1,8 +1,8 @@
 export const Header = () => {
     return (
       <header style={styles.header}>
-        <h1 style={styles.headerText}>stackup-username-initial’s Drive</h1>
-        <p style={styles.headerSubText}>A File Manager created by stackup-username</p>
+        <h1 style={styles.headerText}>M’s Drive</h1>
+        <p style={styles.headerSubText}>A File Manager created by Mubarak</p>
       </header>
     );
   }
